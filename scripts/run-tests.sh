@@ -9,15 +9,19 @@
 #   bash run-tests.sh --a11y             # 無障礙測試
 #   bash run-tests.sh --e2e              # E2E 測試
 #   bash run-tests.sh --browser firefox  # 指定瀏覽器
+#   bash run-tests.sh --kind --smoke     # Kind K8s 冒煙測試
+#   bash run-tests.sh --kind --full      # Kind K8s 完整測試
 
 set -e
 
 MODE="all"
 BROWSER="chromium"
+USE_KIND=false
 
 # 解析參數
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --kind)       USE_KIND=true; shift ;;
     --smoke)      MODE="smoke"; shift ;;
     --regression) MODE="regression"; shift ;;
     --visual)     MODE="visual"; shift ;;
@@ -34,12 +38,30 @@ while [[ $# -gt 0 ]]; do
       echo "  --a11y         無障礙測試（@a11y 標籤）"
       echo "  --e2e          E2E 測試（非 BDD）"
       echo "  --browser NAME 指定瀏覽器（chromium/firefox/webkit）"
+      echo "  --kind         在 Kind K8s 叢集中執行測試"
       echo "  --help         顯示此說明"
       exit 0
       ;;
     *) echo "未知參數: $1"; exit 1 ;;
   esac
 done
+
+# 如果使用 Kind 模式，委派給 kind-test.sh
+if [ "$USE_KIND" = true ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  case $MODE in
+    smoke|regression)
+      exec bash "$SCRIPT_DIR/kind-test.sh" "--${MODE}"
+      ;;
+    all)
+      exec bash "$SCRIPT_DIR/kind-test.sh" "--full"
+      ;;
+    *)
+      echo "Kind 模式支援: --smoke / --regression / 或全部（預設）"
+      exit 1
+      ;;
+  esac
+fi
 
 echo "=== Playwright PoC 測試執行 ==="
 echo "測試模式: $MODE"

@@ -62,7 +62,10 @@ playwright-bdd-poc/
 │       └── parallel-demo.spec.ts
 ├── config/
 │   ├── playwright.config.ts            # 主設定檔
+│   ├── playwright.e2e.config.ts        # E2E 測試設定
 │   ├── playwright.ci.config.ts         # CI 專用設定
+│   ├── playwright.k8s.config.ts        # K8s BDD 測試設定
+│   ├── playwright.e2e.k8s.config.ts    # K8s E2E 測試設定
 │   ├── cucumber.js                     # Cucumber 設定
 │   └── environments.ts                 # 環境設定 (SIT/UAT/PROD)
 ├── reports/                            # 測試報告輸出目錄
@@ -71,10 +74,22 @@ playwright-bdd-poc/
 │   └── .gitkeep
 ├── docker/
 │   ├── Dockerfile                      # 測試執行容器
+│   ├── Dockerfile.app                  # Demo App 輕量容器
 │   └── docker-compose.yml              # 本機整合測試
+├── k8s/                                # Kubernetes Manifests
+│   ├── namespace.yaml                  # playwright-tests 命名空間
+│   ├── demo-app-deployment.yaml        # Demo App Deployment
+│   ├── demo-app-service.yaml           # ClusterIP Service
+│   ├── test-pvc.yaml                   # 報告 PVC
+│   ├── test-configmap.yaml             # 共用設定
+│   ├── test-job-smoke.yaml             # Smoke 測試 Job
+│   ├── test-job-regression.yaml        # 回歸測試 Job
+│   ├── test-job-full.yaml              # 完整測試 Job
+│   └── kind-cluster.yaml               # Kind 叢集設定（可選）
 ├── scripts/
 │   ├── setup.sh                        # 環境初始化
 │   ├── run-tests.sh                    # 測試執行腳本
+│   ├── kind-test.sh                    # Kind K8s 測試編排
 │   ├── generate-report.sh              # 報告產生
 │   └── release-gate-check.sh           # Release Gate 判斷腳本
 ├── package.json
@@ -98,6 +113,8 @@ playwright-bdd-poc/
 | **allure-playwright** | 企業級測試報告 | Latest stable |
 | **Express** | Demo App & Mock API | Latest stable |
 | **Docker** | 容器化測試執行 | - |
+| **Kind** | Kubernetes in Docker | v0.24.0 |
+| **Kubernetes** | 容器編排 | v1.31.0 |
 
 ---
 
@@ -132,6 +149,7 @@ playwright-bdd-poc/
 | 16 | **企業級報告** | Allure + HTML | 趨勢圖、失敗截圖、步驟明細 |
 | 17 | **CI/CD 整合** | .github/workflows/ | PR Gate + Nightly + Release Gate |
 | 18 | **Docker 容器化** | docker/ | 一致的測試執行環境 |
+| 19 | **Kind K8s CI/CD** | k8s/ | Kubernetes 叢集中執行測試 |
 
 ---
 
@@ -286,6 +304,32 @@ npx tsc --init
 - CI/CD 整合說明
 - 架構決策紀錄 (ADR)
 
+### Step 13: Kind Kubernetes CI/CD 整合
+- Docker 映像（Dockerfile.app 輕量 Demo App + 更新 Dockerfile 測試映像）
+- Playwright K8s 設定檔（移除 webServer，baseURL 指向 K8s Service）
+- Kubernetes Manifests（Namespace、Deployment、Service、PVC、ConfigMap、3 個 Test Job）
+- 編排腳本 kind-test.sh（build → load → deploy → test → collect → gate-check）
+- 驗證在 Kind 叢集中完整執行測試流程
+
+#### Kind K8s 架構
+```
+Kind Cluster
+└── Namespace: playwright-tests
+    ├── Deployment: demo-app        ← Express Demo App (node:20-alpine)
+    ├── Service: demo-app-svc       ← ClusterIP :3000
+    ├── ConfigMap: test-config      ← 共用環境變數
+    ├── PVC: test-reports-pvc       ← 報告持久化
+    └── Job: test-smoke/regression/full  ← Playwright 測試執行器
+```
+
+#### Kind 測試模式
+| 模式 | 指令 | 說明 |
+|------|------|------|
+| Smoke | `bash scripts/kind-test.sh --smoke` | @smoke 標籤快速驗證 |
+| Regression | `bash scripts/kind-test.sh --regression` | 全部 BDD 測試 |
+| Full | `bash scripts/kind-test.sh --full` | BDD + E2E 完整測試 |
+| Clean | `bash scripts/kind-test.sh --clean` | 清理所有 K8s 資源 |
+
 ---
 
 ## 🏷️ Gherkin Tag 策略
@@ -357,6 +401,7 @@ npx tsc --init
 | CI 執行時間 (Full) | < 30 分鐘 |
 | Release Gate 自動判斷 | 通過率 ≥ 95% 放行 |
 | Docker 可執行 | ✅ |
+| Kind K8s 可執行 | ✅ |
 
 ---
 

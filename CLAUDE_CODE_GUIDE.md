@@ -116,6 +116,16 @@
 README 要專業、完整，適合給團隊和主管審閱。
 ```
 
+### 🔹 Step 13: Kind Kubernetes CI/CD
+```
+依照 PROJECT_PLAN.md Step 13 建立 Kind K8s CI/CD 整合：
+1. Docker 映像：Dockerfile.app（Demo App 輕量映像）+ 更新 Dockerfile
+2. K8s 設定檔：playwright.k8s.config.ts、playwright.e2e.k8s.config.ts
+3. Kubernetes Manifests：namespace、deployment、service、pvc、configmap、3 個 test job
+4. 編排腳本：kind-test.sh（build → load → deploy → test → collect → gate-check）
+5. 驗證：在 Kind 叢集中執行 bash scripts/kind-test.sh --smoke
+```
+
 ---
 
 ## ⚡ 常用驗證指令
@@ -135,4 +145,10 @@ npx playwright show-report
 
 # Docker 執行
 docker-compose -f docker/docker-compose.yml up --build
+
+# Kind K8s 測試
+bash scripts/kind-test.sh --smoke        # 冒煙測試
+bash scripts/kind-test.sh --regression   # 回歸測試
+bash scripts/kind-test.sh --full         # 完整測試
+bash scripts/kind-test.sh --clean        # 清理資源
 ```

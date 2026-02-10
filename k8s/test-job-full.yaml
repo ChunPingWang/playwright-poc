@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-full
+  namespace: playwright-tests
+  labels:
+    app: playwright-test
+    test-type: full
+    app.kubernetes.io/part-of: playwright-poc
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: playwright-test
+        test-type: full
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: test-runner
+          image: playwright-poc-test:latest
+          imagePullPolicy: Never
+          envFrom:
+            - configMapRef:
+                name: test-config
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "=== 完整測試開始（BDD + E2E）==="
+              npx bddgen --config config/playwright.k8s.config.ts
+              npx playwright test --config=config/playwright.k8s.config.ts --project=chromium
+              BDD_EXIT=$?
+              echo "BDD 測試完成 (exit: $BDD_EXIT)"
+              npx playwright test --config=config/playwright.e2e.k8s.config.ts --project=chromium
+              E2E_EXIT=$?
+              echo "E2E 測試完成 (exit: $E2E_EXIT)"
+              mkdir -p /reports/html-report /reports/test-results
+              cp -r reports/* /reports/ 2>/dev/null || true
+              cp -r playwright-report/* /reports/html-report/ 2>/dev/null || true
+              cp -r test-results/* /reports/test-results/ 2>/dev/null || true
+              echo "=== 完整測試結束 (BDD: $BDD_EXIT, E2E: $E2E_EXIT) ==="
+              if [ $BDD_EXIT -ne 0 ] || [ $E2E_EXIT -ne 0 ]; then exit 1; fi
+          volumeMounts:
+            - name: reports
+              mountPath: /reports
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: test-reports-pvc
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi

@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-smoke
+  namespace: playwright-tests
+  labels:
+    app: playwright-test
+    test-type: smoke
+    app.kubernetes.io/part-of: playwright-poc
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: playwright-test
+        test-type: smoke
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: test-runner
+          image: playwright-poc-test:latest
+          imagePullPolicy: Never
+          envFrom:
+            - configMapRef:
+                name: test-config
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "=== Smoke 測試開始 ==="
+              npx bddgen --config config/playwright.k8s.config.ts
+              npx playwright test --config=config/playwright.k8s.config.ts --grep @smoke --project=chromium
+              TEST_EXIT=$?
+              mkdir -p /reports/html-report /reports/test-results
+              cp -r reports/* /reports/ 2>/dev/null || true
+              cp -r playwright-report/* /reports/html-report/ 2>/dev/null || true
+              cp -r test-results/* /reports/test-results/ 2>/dev/null || true
+              echo "=== Smoke 測試結束 (exit: $TEST_EXIT) ==="
+              exit $TEST_EXIT
+          volumeMounts:
+            - name: reports
+              mountPath: /reports
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: test-reports-pvc
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi

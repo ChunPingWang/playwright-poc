@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: playwright-tests
+  labels:
+    app.kubernetes.io/part-of: playwright-poc
+data:
+  BASE_URL: "http://demo-app-svc:3000"
+  CI: "true"
+  TEST_ENV: "local"
+  GATE_THRESHOLD: "95"

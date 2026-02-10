@@ -25,6 +25,7 @@
 | 15 | **企業級報告** | HTML Report + JSON Report |
 | 16 | **CI/CD 整合** | PR Gate + Nightly + Release Gate |
 | 17 | **Docker 容器化** | 一致的測試執行環境 |
+| 18 | **Kind K8s CI/CD** | Kubernetes 叢集中執行測試 |
 
 ---
 
@@ -152,10 +153,30 @@ playwright-poc/
 │   └── environments.ts          # 多環境設定
 ├── docker/
 │   ├── Dockerfile               # 測試容器映像
+│   ├── Dockerfile.app           # Demo App 輕量容器
 │   └── docker-compose.yml       # 容器編排
+├── k8s/                         # Kubernetes Manifests
+│   ├── namespace.yaml           # playwright-tests 命名空間
+│   ├── demo-app-deployment.yaml # Demo App Deployment
+│   ├── demo-app-service.yaml    # ClusterIP Service
+│   ├── test-pvc.yaml            # 報告持久化 PVC
+│   ├── test-configmap.yaml      # 共用設定 ConfigMap
+│   ├── test-job-smoke.yaml      # Smoke 測試 Job
+│   ├── test-job-regression.yaml # 回歸測試 Job
+│   ├── test-job-full.yaml       # 完整測試 Job
+│   └── kind-cluster.yaml        # Kind 叢集設定（可選）
+├── config/
+│   ├── playwright.config.ts     # BDD 測試設定
+│   ├── playwright.e2e.config.ts # E2E 測試設定
+│   ├── playwright.ci.config.ts  # CI 專用設定
+│   ├── playwright.k8s.config.ts # K8s BDD 測試設定
+│   ├── playwright.e2e.k8s.config.ts # K8s E2E 測試設定
+│   ├── cucumber.js              # Cucumber 設定
+│   └── environments.ts          # 多環境設定
 ├── scripts/
 │   ├── setup.sh                 # 環境初始化
 │   ├── run-tests.sh             # 測試執行
+│   ├── kind-test.sh             # Kind K8s 測試編排
 │   ├── generate-report.sh       # 報告產生
 │   └── release-gate-check.sh    # Release Gate 判斷
 └── README.md
@@ -173,6 +194,8 @@ playwright-poc/
 | [@axe-core/playwright](https://github.com/dequelabs/axe-core-npm) | 無障礙測試 (WCAG 2.1 AA) |
 | [Express](https://expressjs.com/) | Demo App & Mock API |
 | [Docker](https://www.docker.com/) | 容器化測試執行 |
+| [Kind](https://kind.sigs.k8s.io/) | Kubernetes in Docker（本地 K8s 叢集） |
+| [Kubernetes](https://kubernetes.io/) | 容器編排（Job、Deployment、Service） |
 
 ---
 
@@ -317,6 +340,81 @@ docker-compose -f docker/docker-compose.yml run test-all
 
 ---
 
+## Kind Kubernetes 測試
+
+在本地 Kind Kubernetes 叢集中執行 Playwright 測試，模擬真實的 K8s CI/CD 環境。
+
+### 前置需求
+
+- Docker
+- [Kind](https://kind.sigs.k8s.io/) v0.24.0+
+- kubectl
+
+### 架構
+
+```
+Kind Cluster
+└── Namespace: playwright-tests
+    ├── Deployment: demo-app          ← Express Demo App (node:20-alpine, ~50MB)
+    ├── Service: demo-app-svc         ← ClusterIP :3000
+    ├── ConfigMap: test-config        ← BASE_URL、CI、TEST_ENV
+    ├── PVC: test-reports-pvc         ← 500Mi 報告持久化
+    └── Job: test-smoke/regression/full  ← Playwright 測試執行器
+```
+
+### 執行測試
+
+```bash
+# 冒煙測試（@smoke 標籤，最快）
+bash scripts/kind-test.sh --smoke
+
+# 回歸測試（全部 BDD 測試）
+bash scripts/kind-test.sh --regression
+
+# 完整測試（BDD + E2E）
+bash scripts/kind-test.sh --full
+
+# 指定叢集名稱
+bash scripts/kind-test.sh --smoke --cluster my-cluster
+
+# 跳過映像建置（使用既有映像）
+bash scripts/kind-test.sh --smoke --skip-build
+
+# 或透過 run-tests.sh 呼叫
+bash scripts/run-tests.sh --kind --smoke
+```
+
+### 清理資源
+
+```bash
+bash scripts/kind-test.sh --clean
+```
+
+### 報告收集
+
+測試完成後報告會自動收集到 `reports/k8s/` 目錄，包含：
+- `results.json` — JSON 格式測試結果（供 Release Gate 判斷）
+- `html-report/` — Playwright HTML 報告
+- `test-results/` — 測試產出物（截圖、錄影等）
+
+### 建立專屬叢集（可選）
+
+若不想使用既有叢集，可建立專屬的 Kind 叢集：
+
+```bash
+kind create cluster --config k8s/kind-cluster.yaml
+bash scripts/kind-test.sh --smoke --cluster playwright-poc
+```
+
+### 關鍵設計
+
+- **兩個映像分離**：Demo App 使用 `node:20-alpine`（輕量），測試用 `mcr.microsoft.com/playwright`（完整）
+- **`imagePullPolicy: Never`**：Kind 透過 `kind load docker-image` 載入本機映像
+- **`/dev/shm` 掛載**：所有 Job 掛載 256Mi Memory emptyDir，避免 Chromium 共享記憶體不足
+- **移除 `webServer`**：K8s 中 Demo App 是獨立 Deployment，Playwright 設定不需自動啟動 server
+
+---
+
 ## 多環境設定
 
 透過 `TEST_ENV` 環境變數切換測試環境：
@@ -402,6 +500,17 @@ TEST_ENV=uat BASE_URL=https://uat.example.com npm run test:bdd
 - CI/CD 可根據不同場景執行對應 Tag 的測試子集
 - 同一個測試可擁有多個 Tag（如 `@smoke @critical`），靈活組合
 
+### ADR-005: Kind Kubernetes CI/CD 整合
+
+**決策**：使用 Kind（Kubernetes in Docker）在本地模擬 K8s 叢集執行測試。
+
+**原因**：
+- Kind 輕量、快速，適合本地開發和 CI 環境
+- 使用標準 K8s Manifests（Deployment、Service、Job），可直接移植到正式 K8s 環境
+- Demo App 和 Test Runner 分離為獨立 Pod，模擬真實微服務架構
+- Job 的 `backoffLimit: 0` 和 `restartPolicy: Never` 確保測試失敗不會重複執行
+- PVC 持久化報告，透過 `kubectl cp` 收集至本機
+
 ---
 
 ## 常用指令參考
@@ -428,6 +537,12 @@ npx playwright show-report
 
 # Docker
 docker-compose -f docker/docker-compose.yml run test-bdd
+
+# Kind K8s
+bash scripts/kind-test.sh --smoke        # 冒煙測試
+bash scripts/kind-test.sh --regression   # 回歸測試
+bash scripts/kind-test.sh --full         # 完整測試
+bash scripts/kind-test.sh --clean        # 清理資源
 ```
 
 ---
