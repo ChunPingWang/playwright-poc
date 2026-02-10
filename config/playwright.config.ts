@@ -1,9 +1,13 @@
+import path from 'path';
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
 
+const rootDir = path.resolve(__dirname, '..');
+
 const testDir = defineBddConfig({
-  features: 'tests/features/**/*.feature',
-  steps: 'tests/steps/**/*.ts',
+  featuresRoot: path.join(rootDir, 'tests/features'),
+  features: path.join(rootDir, 'tests/features/**/*.feature'),
+  steps: path.join(rootDir, 'tests/steps/**/*.ts'),
 });
 
 export default defineConfig({

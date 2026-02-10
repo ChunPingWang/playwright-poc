@@ -166,8 +166,8 @@
         const data = await res.json();
 
         if (data.success) {
-          successMsg.classList.add('visible');
           form.reset();
+          successMsg.classList.add('visible');
         }
       } catch (err) {
         console.error('提交失敗:', err);
