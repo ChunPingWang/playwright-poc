@@ -1,0 +1,44 @@
+{
+  "name": "playwright-poc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "app:start": "node src/demo-app/api-mock-server.js",
+    "test:bdd": "npx bddgen && npx playwright test --config=config/playwright.config.ts --project=chromium",
+    "test:smoke": "npx playwright test --config=config/playwright.config.ts --grep @smoke --project=chromium",
+    "test:e2e": "npx playwright test --config=config/playwright.config.ts tests/e2e/",
+    "test:all": "npx bddgen && npx playwright test --config=config/playwright.config.ts",
+    "test:ci": "npx bddgen && npx playwright test --config=config/playwright.ci.config.ts",
+    "test:visual": "npx playwright test --config=config/playwright.config.ts --grep @visual",
+    "test:a11y": "npx playwright test --config=config/playwright.config.ts --grep @a11y",
+    "report:html": "npx playwright show-report",
+    "report:allure": "npx allure generate allure-results -o allure-report --clean && npx allure open allure-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChunPingWang/playwright-poc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ChunPingWang/playwright-poc/issues"
+  },
+  "homepage": "https://github.com/ChunPingWang/playwright-poc#readme",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@cucumber/cucumber": "^12.6.0",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.2.2",
+    "allure-commandline": "^2.36.0",
+    "allure-playwright": "^3.4.5",
+    "playwright-bdd": "^8.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
