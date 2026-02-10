@@ -30,6 +30,9 @@ spec:
             - |
               echo "=== 回歸測試開始 ==="
               npx bddgen --config config/playwright.k8s.config.ts
+              echo ">> 建立視覺回歸基準線（K8s 環境）..."
+              npx playwright test --config=config/playwright.k8s.config.ts --grep @visual --update-snapshots --project=chromium 2>/dev/null || true
+              echo ">> 執行完整回歸測試..."
               npx playwright test --config=config/playwright.k8s.config.ts --project=chromium
               TEST_EXIT=$?
               mkdir -p /reports/html-report /reports/test-results

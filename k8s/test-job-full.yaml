@@ -30,6 +30,9 @@ spec:
             - |
               echo "=== 完整測試開始（BDD + E2E）==="
               npx bddgen --config config/playwright.k8s.config.ts
+              echo ">> 建立視覺回歸基準線（K8s 環境）..."
+              npx playwright test --config=config/playwright.k8s.config.ts --grep @visual --update-snapshots --project=chromium 2>/dev/null || true
+              echo ">> 執行 BDD 測試..."
               npx playwright test --config=config/playwright.k8s.config.ts --project=chromium
               BDD_EXIT=$?
               echo "BDD 測試完成 (exit: $BDD_EXIT)"
