@@ -438,12 +438,12 @@ TEST_ENV=uat BASE_URL=https://uat.example.com npm run test:bdd
 
 ### 測試摘要
 
-| 項目 | 數量 | 狀態 |
-|------|------|------|
-| BDD 測試案例 | 33 | 全部通過 |
-| E2E 測試案例 | 18 | 全部通過 |
-| **總計** | **51** | **100% 通過率** |
-| Release Gate | 100% >= 95% | PASS |
+| 項目 | 數量 | 本機 | Kind K8s |
+|------|------|------|----------|
+| BDD 測試案例 | 33 | 全部通過 | 全部通過 |
+| E2E 測試案例 | 18 | 全部通過 | 全部通過 |
+| **總計** | **51** | **100%** | **100%** |
+| Release Gate | 100% >= 95% | PASS | PASS |
 
 ### BDD Feature 清單
 
@@ -457,6 +457,25 @@ TEST_ENV=uat BASE_URL=https://uat.example.com npm run test:bdd
 | 視覺回歸 | 3 | 登入頁、儀表板、表單頁截圖比對 |
 | 無障礙測試 | 3 | WCAG 2.1 AA 三頁面檢查 |
 | 效能指標 | 3 | 載入時間、Web Vitals |
+
+### Kind Kubernetes 測試結果
+
+在 Kind 叢集（K8s v1.31.0）中驗證全部三種測試模式，皆成功通過：
+
+| 測試模式 | 指令 | 測試數 | 通過 | 執行時間 | Release Gate |
+|----------|------|--------|------|----------|-------------|
+| Smoke | `--smoke` | 14 | 14 (100%) | ~14s | PASS |
+| Regression | `--regression` | 33 | 33 (100%) | ~19s | PASS |
+| **Full (BDD + E2E)** | `--full` | **51** | **51 (100%)** | **~25s** | **PASS** |
+
+測試環境：
+- **叢集**：Kind v0.24.0，1 control-plane + 2 workers
+- **K8s 版本**：v1.31.0
+- **Demo App**：`node:20-alpine` 映像，ClusterIP Service :3000
+- **Test Runner**：`mcr.microsoft.com/playwright:v1.58.2-noble` 映像
+- **報告收集**：透過 PVC + helper Pod 自動收集至 `reports/k8s/`
+
+> **注意**：視覺回歸測試（@visual）在 K8s 容器環境中會自動重新建立基準線，因為容器的字型渲染與本機環境不同。
 
 ---
 
