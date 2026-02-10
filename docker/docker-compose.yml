@@ -1,0 +1,56 @@
+services:
+  # BDD 測試（預設）
+  test-bdd:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - CI=true
+      - BASE_URL=http://localhost:3000
+    volumes:
+      - ../reports:/app/reports
+      - ../screenshots:/app/screenshots
+    command: >
+      sh -c "npx bddgen --config config/playwright.config.ts &&
+             npx playwright test --config=config/playwright.config.ts --project=chromium"
+
+  # E2E 測試
+  test-e2e:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - CI=true
+      - BASE_URL=http://localhost:3000
+    volumes:
+      - ../reports:/app/reports
+      - ../screenshots:/app/screenshots
+    command: npx playwright test --config=config/playwright.e2e.config.ts --project=chromium
+
+  # Smoke 測試（快速驗證）
+  test-smoke:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - CI=true
+      - BASE_URL=http://localhost:3000
+    command: >
+      sh -c "npx bddgen --config config/playwright.config.ts &&
+             npx playwright test --config=config/playwright.config.ts --grep @smoke --project=chromium"
+
+  # 全部測試（多瀏覽器）
+  test-all:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - CI=true
+      - BASE_URL=http://localhost:3000
+    volumes:
+      - ../reports:/app/reports
+      - ../screenshots:/app/screenshots
+    command: >
+      sh -c "npx bddgen --config config/playwright.config.ts &&
+             npx playwright test --config=config/playwright.config.ts &&
+             npx playwright test --config=config/playwright.e2e.config.ts"
