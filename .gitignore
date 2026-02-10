@@ -6,6 +6,7 @@ playwright-report/
 allure-results/
 allure-report/
 screenshots/*.png
+!screenshots/demo-*.png
 !screenshots/.gitkeep
 .env
 *.log
