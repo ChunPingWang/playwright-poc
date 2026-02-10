@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表單範例 - Playwright PoC Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="navbar" role="navigation" aria-label="主導覽列">
+    <h1>Playwright PoC Demo</h1>
+    <nav>
+      <a href="/dashboard.html">儀表板</a>
+      <a href="/form.html" aria-current="page">表單範例</a>
+    </nav>
+    <div class="user-info">
+      <span id="user-display" aria-label="目前使用者"></span>
+      <button id="logout-btn" aria-label="登出">登出</button>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <div class="form-container">
+      <div class="card">
+        <h2 style="margin-bottom: 20px;">新增聯絡人</h2>
+
+        <div id="success-msg" class="success-message" role="alert" aria-live="polite">
+          表單提交成功！
+        </div>
+
+        <form id="contact-form" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="first-name">姓氏 <span style="color: #d32f2f;">*</span></label>
+              <input type="text" id="first-name" name="firstName" required aria-required="true" placeholder="請輸入姓氏">
+              <div class="error-message" id="first-name-error">請輸入姓氏</div>
+            </div>
+            <div class="form-group">
+              <label for="last-name">名字 <span style="color: #d32f2f;">*</span></label>
+              <input type="text" id="last-name" name="lastName" required aria-required="true" placeholder="請輸入名字">
+              <div class="error-message" id="last-name-error">請輸入名字</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="email">電子郵件 <span style="color: #d32f2f;">*</span></label>
+            <input type="email" id="email" name="email" required aria-required="true" placeholder="example@email.com">
+            <div class="error-message" id="email-error">請輸入有效的電子郵件</div>
+          </div>
+
+          <div class="form-group">
+            <label for="phone">電話</label>
+            <input type="tel" id="phone" name="phone" placeholder="09xx-xxx-xxx">
+            <div class="error-message" id="phone-error">請輸入有效的電話號碼</div>
+          </div>
+
+          <div class="form-group">
+            <label for="department">部門 <span style="color: #d32f2f;">*</span></label>
+            <select id="department" name="department" required aria-required="true">
+              <option value="">請選擇部門</option>
+              <option value="engineering">工程部</option>
+              <option value="marketing">行銷部</option>
+              <option value="sales">業務部</option>
+              <option value="hr">人資部</option>
+              <option value="finance">財務部</option>
+            </select>
+            <div class="error-message" id="department-error">請選擇部門</div>
+          </div>
+
+          <div class="form-group">
+            <label for="message">備註</label>
+            <textarea id="message" name="message" rows="4" placeholder="請輸入備註內容..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+              <input type="checkbox" id="agree-terms" name="agreeTerms" required aria-required="true">
+              我同意服務條款與隱私政策 <span style="color: #d32f2f;">*</span>
+            </label>
+            <div class="error-message" id="terms-error">請同意服務條款</div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-btn" style="flex: 1;">提交</button>
+            <button type="reset" class="btn btn-secondary" id="reset-btn">重置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 檢查登入狀態
+    const user = JSON.parse(sessionStorage.getItem('user') || 'null');
+    if (!user) {
+      window.location.href = '/login.html';
+    } else {
+      document.getElementById('user-display').textContent = `歡迎, ${user.name}`;
+    }
+
+    // 登出
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      sessionStorage.clear();
+      window.location.href = '/login.html';
+    });
+
+    // 表單驗證
+    const form = document.getElementById('contact-form');
+    const successMsg = document.getElementById('success-msg');
+
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function validatePhone(phone) {
+      if (!phone) return true; // 非必填
+      return /^[\d\-+() ]{7,15}$/.test(phone);
+    }
+
+    function showError(fieldId, errorId) {
+      document.getElementById(fieldId).classList.add('error');
+      document.getElementById(errorId).classList.add('visible');
+    }
+
+    function clearErrors() {
+      document.querySelectorAll('.error-message').forEach(el => el.classList.remove('visible'));
+      document.querySelectorAll('input, select, textarea').forEach(el => el.classList.remove('error'));
+      successMsg.classList.remove('visible');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearErrors();
+      let valid = true;
+
+      const firstName = document.getElementById('first-name').value.trim();
+      const lastName = document.getElementById('last-name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const department = document.getElementById('department').value;
+      const agreeTerms = document.getElementById('agree-terms').checked;
+
+      if (!firstName) { showError('first-name', 'first-name-error'); valid = false; }
+      if (!lastName) { showError('last-name', 'last-name-error'); valid = false; }
+      if (!email || !validateEmail(email)) { showError('email', 'email-error'); valid = false; }
+      if (!validatePhone(phone)) { showError('phone', 'phone-error'); valid = false; }
+      if (!department) { showError('department', 'department-error'); valid = false; }
+      if (!agreeTerms) { showError('agree-terms', 'terms-error'); valid = false; }
+
+      if (!valid) return;
+
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中...';
+
+      try {
+        const res = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ firstName, lastName, email, phone, department,
+            message: document.getElementById('message').value.trim() })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          successMsg.classList.add('visible');
+          form.reset();
+        }
+      } catch (err) {
+        console.error('提交失敗:', err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交';
+      }
+    });
+
+    form.addEventListener('reset', clearErrors);
+  </script>
+</body>
+</html>

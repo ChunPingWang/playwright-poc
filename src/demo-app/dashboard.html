@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>儀表板 - Playwright PoC Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="navbar" role="navigation" aria-label="主導覽列">
+    <h1>Playwright PoC Demo</h1>
+    <nav>
+      <a href="/dashboard.html" aria-current="page">儀表板</a>
+      <a href="/form.html">表單範例</a>
+    </nav>
+    <div class="user-info">
+      <span id="user-display" aria-label="目前使用者"></span>
+      <button id="logout-btn" aria-label="登出">登出</button>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <h2 style="margin-bottom: 20px;">儀表板總覽</h2>
+
+    <!-- 統計卡片 -->
+    <div class="dashboard-grid" id="stats-grid">
+      <div class="stat-card" data-testid="stat-users">
+        <div class="stat-value" id="total-users">--</div>
+        <div class="stat-label">總使用者數</div>
+      </div>
+      <div class="stat-card" data-testid="stat-orders">
+        <div class="stat-value" id="total-orders">--</div>
+        <div class="stat-label">本月訂單</div>
+      </div>
+      <div class="stat-card" data-testid="stat-revenue">
+        <div class="stat-value" id="total-revenue">--</div>
+        <div class="stat-label">本月營收</div>
+      </div>
+      <div class="stat-card" data-testid="stat-satisfaction">
+        <div class="stat-value" id="satisfaction-rate">--</div>
+        <div class="stat-label">滿意度</div>
+      </div>
+    </div>
+
+    <!-- 圖表區域 -->
+    <div class="card chart-area" data-testid="chart-area">
+      <h3>月度趨勢圖</h3>
+      <div class="chart-placeholder" id="chart-placeholder">
+        載入中...
+      </div>
+    </div>
+
+    <!-- 資料表格 -->
+    <div class="card" data-testid="recent-orders">
+      <h3 style="margin-bottom: 12px;">最近訂單</h3>
+      <table class="data-table" aria-label="最近訂單列表">
+        <thead>
+          <tr>
+            <th>訂單編號</th>
+            <th>客戶名稱</th>
+            <th>金額</th>
+            <th>狀態</th>
+            <th>日期</th>
+          </tr>
+        </thead>
+        <tbody id="orders-tbody">
+          <tr><td colspan="5" style="text-align: center;">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    // 檢查登入狀態
+    const user = JSON.parse(sessionStorage.getItem('user') || 'null');
+    if (!user) {
+      window.location.href = '/login.html';
+    } else {
+      document.getElementById('user-display').textContent = `歡迎, ${user.name}`;
+    }
+
+    // 登出
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      sessionStorage.clear();
+      window.location.href = '/login.html';
+    });
+
+    // 載入儀表板資料
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/dashboard', {
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token')}` }
+        });
+        const data = await res.json();
+
+        document.getElementById('total-users').textContent = data.stats.totalUsers.toLocaleString();
+        document.getElementById('total-orders').textContent = data.stats.totalOrders.toLocaleString();
+        document.getElementById('total-revenue').textContent = `$${data.stats.revenue.toLocaleString()}`;
+        document.getElementById('satisfaction-rate').textContent = `${data.stats.satisfaction}%`;
+        document.getElementById('chart-placeholder').textContent = '圖表已載入';
+
+        const tbody = document.getElementById('orders-tbody');
+        tbody.innerHTML = data.recentOrders.map(order => `
+          <tr>
+            <td>${order.id}</td>
+            <td>${order.customer}</td>
+            <td>$${order.amount.toLocaleString()}</td>
+            <td><span class="status-badge status-${order.status}">${
+              order.status === 'active' ? '處理中' :
+              order.status === 'pending' ? '待處理' : '已完成'
+            }</span></td>
+            <td>${order.date}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('載入失敗:', err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
