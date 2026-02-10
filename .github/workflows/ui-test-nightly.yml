@@ -1,0 +1,52 @@
+name: UI 測試 - 每日回歸
+
+on:
+  schedule:
+    - cron: '0 2 * * 1-5'  # 週一到五 UTC 02:00（台灣 10:00）
+  workflow_dispatch:          # 手動觸發
+
+jobs:
+  full-regression:
+    name: 完整回歸測試
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: 安裝 Playwright 瀏覽器
+        run: npx playwright install --with-deps
+
+      - name: 產生 BDD 測試檔
+        run: npx bddgen --config config/playwright.config.ts
+
+      - name: 執行 BDD 回歸測試 (${{ matrix.browser }})
+        run: npx playwright test --config=config/playwright.config.ts --project=${{ matrix.browser }}
+
+      - name: 執行 E2E 回歸測試 (${{ matrix.browser }})
+        run: npx playwright test --config=config/playwright.e2e.config.ts --project=${{ matrix.browser }}
+        if: matrix.browser == 'chromium'
+
+      - name: 上傳測試報告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-report-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            reports/
+            screenshots/
+          retention-days: 14
